@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <style>
+ HTML, body{
+   background-color:black;
+   width: 100%; height: 100%;
+   margin: 0;
+   display: flex; justify-content: center; align-items: center;
+ }
+   body{
+    border-radius:20px; background-color:white;
+    width: 95%; height: 95%;
+    overflow: hidden; position: relative;
+  }
+  #author{
+    font-size: 18px; position: absolute;
+    margin-left: 4%; bottom:2%;
+  }
+  #h2 {
+    position: relative;
+    display: flex; justify-content: center; align-items: center;
+  }
+  #div-1{
+    background-color:white;
+    position: absolute; width: 95%; height: 80%;
+    top: 1%; border-radius: 10px;
+    box-shadow: inset 0px 0px 10px rgba(0, 0, 0, 0.3);
+  }
+  #fan-a-on{ background-color:#FFFFF0; position: absolute; top: 18%; left:7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow:0px 0px 6px rgba(0,0,0,0.3); }
+  #fan-a-off{ background-color:#FCFCF7; position: absolute; top: 18%; right:7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow:0px 0px 6px rgba(0,0,0,0.3); }
+  #fan-b-on{ background-color:#F2F8FC; position: absolute; top: 31%; left:7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow:0px 0px 6px rgba(0,0,0,0.3); }
+  #fan-b-off{ background-color:#FAF9FC; position: absolute; top: 31%; right:7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow:0px 0px 6px rgba(0,0,0,0.3); }
+  #fan-c-on{ background-color:#F4F1F8; position: absolute; top: 44%; left:7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow:0px 0px 6px rgba(0,0,0,0.3); }
+  #fan-c-off{ background-color:#F0F8FF; position: absolute; top: 44%; right:7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow:0px 0px 6px rgba(0,0,0,0.3); }
+  #light-a-on { background-color: #FBF5DF; position: absolute; top: 57%; left: 7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow: 0px 0px 6px rgba(0, 0, 0, 0.3); }
+  #light-a-off { background-color: #FDFDFD; position: absolute; top: 57%; right: 7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow: 0px 0px 6px rgba(0, 0, 0, 0.3); }
+  </style>
+</head>
+<body>
+   <h1 id="author"><i>This is a product was <br> DESIGNED BY RAKIB RIDDHA A student of National Institute of Engineering and technology </i></h1>
+  <div id="div-1">
+    <h2 id="h2">রাকিব ফ্যান কন্টোল</h2>
+    <hr>
+    <button id="fan-a-on">FAN-A-ON</button>
+    <button id="fan-a-off">FAN-A-OFF</button>
+    <button id="fan-b-on">FAN-B-ON</button>
+    <button id="fan-b-off">FAN-B-OFF</button>
+    <button id="fan-c-on">FAN-C-ON</button>
+    <button id="fan-c-off">FAN-C-OFF</button>
+    <button id="light-a-on">LIGHT-A-ON</button>
+    <button id="light-a-off">LIGHT-A-OFF</button>
+
+  <select id="switch-select" style="padding: 10px; font-size: 16px; border-radius: 5px; position:absolute; top:70%; left:7%; width: 86%; box-sizing: border-box;">
+  <option value=""  disabled selected>একটি সুইচ বেছে নিন</option>
+  <option value="fan-a-off">ফ্যান ১</option>
+  <option value="fan-b-off">ফ্যান ২</option>
+  <option value="fan-c-off">ফ্যান ৩</option>
+  <option value="light-a-off">লাইট</option>
+</select>
+
+<input type="time" id="time" style="padding: 10px; font-size: 16px; border-radius: 5px; position:absolute; top:80%; left:7%; width: 86%; box-sizing: border-box;">
+
+<button id="save-time" style="padding: 10px; font-size: 16px; border-radius: 5px; position:absolute; top:90%; left:7%; width: 45%; box-sizing: border-box;">SAVE-TIME</button>
+
+<span id="indicator-a" style="position:absolute; top:91.5%; left: 55%; width:22px; height:22px; background-color:red; border-radius:50%;"></span>
+<span id="indicator-b" style="position:absolute; top:91.5%; left: 64%; width:22px; height:22px; background-color:red; border-radius:50%;"></span>
+<span id="indicator-c" style="position:absolute; top:91.5%; left: 73%; width:22px; height:22px; background-color:red; border-radius:50%;"></span>
+<span id="indicator-d" style="position:absolute; top:91.5%; left: 82%; width:22px; height:22px; background-color:red; border-radius:50%;"></span>
+</div>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script>
+(function(){
+  function decodeUnicode(str){
+    return str.replace(/\\u([0-9a-fA-F]{4})/g, function(m,g){
+      return String.fromCharCode(parseInt(g,16));
+    });
+  }
+  document.querySelectorAll('h2,option').forEach(function(el){
+    if(el.innerHTML.includes('\\u')) el.innerHTML = decodeUnicode(el.innerHTML);
+  });
+
+  var DEVICES = ['fan-a','fan-b','fan-c','light-a'];
+  var DOTS = {'fan-a':'indicator-a','fan-b':'indicator-b','fan-c':'indicator-c','light-a':'indicator-d'};
+  var TOPIC_CMD = 'rakib-riddha/esp32/cmd';
+  var TOPIC_STATE = 'rakib-riddha/esp32/state';
+  var BROKER_WS = 'wss://broker.hivemq.com:8884/mqtt';
+
+  var useMqtt = false;
+  var mqttClient = null;
+
+  function paint(dev,on){
+    var el = document.getElementById(DOTS[dev]);
+    if(!el) return;
+    el.style.background = on ? '#00e676' : '#ff1744';
+    el.style.boxShadow  = on ? '0 0 10px #00e676' : 'none';
+  }
+  function paintAll(st){ DEVICES.forEach(function(d){ paint(d, Number(st[d])===1); }); }
+
+  try {
+    mqttClient = mqtt.connect(BROKER_WS, {
+      clientId: 'web-' + Math.random().toString(16).substr(2,8),
+      keepalive: 30,
+      reconnectPeriod: 4000
+    });
+    mqttClient.on('connect', function(){
+      useMqtt = true;
+      mqttClient.subscribe(TOPIC_STATE);
+      console.log('MQTT connected');
+    });
+    mqttClient.on('message', function(topic, payload){
+      if(topic === TOPIC_STATE){
+        try { paintAll(JSON.parse(payload.toString())); } catch(e){}
+      }
+    });
+    mqttClient.on('error', function(){ useMqtt = false; });
+    mqttClient.on('close', function(){ useMqtt = false; });
+  } catch(e) { useMqtt = false; }
+
+  async function sendCmd(dev, on){
+    paint(dev, on);
+    if(useMqtt && mqttClient && mqttClient.connected){
+      mqttClient.publish(TOPIC_CMD, dev + ':' + (on ? 1 : 0));
+      return;
+    }
+    try {
+      var r = await fetch('/api/cmd?d=' + dev + '&s=' + (on?1:0), {cache:'no-store'});
+      if(r.ok) paintAll(await r.json());
+    } catch(e){}
+  }
+
+  document.querySelectorAll('button[id$="-on"]').forEach(function(b){
+    b.addEventListener('click', function(){ sendCmd(b.id.slice(0,-3), true); });
+  });
+  document.querySelectorAll('button[id$="-off"]').forEach(function(b){
+    b.addEventListener('click', function(){ sendCmd(b.id.slice(0,-4), false); });
+  });
+
+  document.getElementById('save-time').addEventListener('click', async function(){
+    var sel = document.getElementById('switch-select').value;
+    var tval = document.getElementById('time').value;
+    if(!sel){ alert('আগে একটি সুইচ বেছে নিন'); return; }
+    if(!tval){ alert('আগে সময় সেট করুন'); return; }
+
+    var dev = sel.replace(/-off$/,'');
+    var parts = tval.split(':');
+    var hh = Number(parts[0]), mm = Number(parts[1]);
+    var now = new Date();
+    var target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0, 0);
+    if(target.getTime() <= now.getTime()) target.setDate(target.getDate()+1);
+    var ms = target.getTime() - now.getTime();
+
+    if(useMqtt && mqttClient && mqttClient.connected){
+      mqttClient.publish(TOPIC_CMD, 'timer:' + dev + ':' + ms);
+      alert('টাইমার সেট হয়েছে ✅\n' + tval + ' -এ সুইচটি বন্ধ হবে।');
+      return;
+    }
+    try {
+      var r = await fetch('/api/timer?d=' + dev + '&ms=' + ms, {cache:'no-store'});
+      if(r.ok) alert('টাইমার সেট হয়েছে ✅\n' + tval + ' -এ সুইচটি বন্ধ হবে।');
+    } catch(e){ alert('সংযোগ নেই'); }
+  });
+
+  async function refresh(){
+    if(useMqtt) return;
+    try {
+      var r = await fetch('/api/state', {cache:'no-store'});
+      if(r.ok) paintAll(await r.json());
+    } catch(e){}
+  }
+  refresh();
+  setInterval(refresh, 1500);
+})();
+</script>
+</body>
+</html>
