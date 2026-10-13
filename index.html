@@ -17,8 +17,8 @@
     overflow: hidden; position: relative;
   }
   #author{
-    font-size: 18px; position: absolute;
-    margin-left: 4%; bottom:2%;
+    font-size: 20px; position: absolute;
+    margin-left: 4%; bottom: 3%;
   }
   #h2 {
     position: relative;
@@ -38,6 +38,7 @@
   #fan-c-off{ background-color:#F0F8FF; position: absolute; top: 44%; right:7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow:0px 0px 6px rgba(0,0,0,0.3); }
   #light-a-on { background-color: #FBF5DF; position: absolute; top: 57%; left: 7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow: 0px 0px 6px rgba(0, 0, 0, 0.3); }
   #light-a-off { background-color: #FDFDFD; position: absolute; top: 57%; right: 7%; width: 40%; height: 7%; border: 0.5px dotted; border-radius: 5px; box-shadow: 0px 0px 6px rgba(0, 0, 0, 0.3); }
+  #esp-status { position:absolute; top:84%; left:7%; font-size:13px; font-weight:bold; color:#999; }
   </style>
 </head>
 <body>
@@ -70,20 +71,13 @@
 <span id="indicator-b" style="position:absolute; top:91.5%; left: 64%; width:22px; height:22px; background-color:red; border-radius:50%;"></span>
 <span id="indicator-c" style="position:absolute; top:91.5%; left: 73%; width:22px; height:22px; background-color:red; border-radius:50%;"></span>
 <span id="indicator-d" style="position:absolute; top:91.5%; left: 82%; width:22px; height:22px; background-color:red; border-radius:50%;"></span>
+
+<div id="esp-status">🟡 Connecting...</div>
 </div>
 
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script>
 (function(){
-  function decodeUnicode(str){
-    return str.replace(/\\u([0-9a-fA-F]{4})/g, function(m,g){
-      return String.fromCharCode(parseInt(g,16));
-    });
-  }
-  document.querySelectorAll('h2,option').forEach(function(el){
-    if(el.innerHTML.includes('\\u')) el.innerHTML = decodeUnicode(el.innerHTML);
-  });
-
   var DEVICES = ['fan-a','fan-b','fan-c','light-a'];
   var DOTS = {'fan-a':'indicator-a','fan-b':'indicator-b','fan-c':'indicator-c','light-a':'indicator-d'};
   var TOPIC_CMD = 'rakib-riddha/esp32/cmd';
@@ -92,6 +86,7 @@
 
   var useMqtt = false;
   var mqttClient = null;
+  var lastStateTime = 0;
 
   function paint(dev,on){
     var el = document.getElementById(DOTS[dev]);
@@ -100,6 +95,18 @@
     el.style.boxShadow  = on ? '0 0 10px #00e676' : 'none';
   }
   function paintAll(st){ DEVICES.forEach(function(d){ paint(d, Number(st[d])===1); }); }
+
+  function setStatus(online){
+    var el = document.getElementById('esp-status');
+    if(!el) return;
+    if(online){
+      el.textContent = '🟢 ESP32 Online';
+      el.style.color = '#00a152';
+    } else {
+      el.textContent = '🔴 ESP32 Offline';
+      el.style.color = '#d32f2f';
+    }
+  }
 
   try {
     mqttClient = mqtt.connect(BROKER_WS, {
@@ -110,11 +117,17 @@
     mqttClient.on('connect', function(){
       useMqtt = true;
       mqttClient.subscribe(TOPIC_STATE);
-      console.log('MQTT connected');
     });
     mqttClient.on('message', function(topic, payload){
       if(topic === TOPIC_STATE){
-        try { paintAll(JSON.parse(payload.toString())); } catch(e){}
+        var msg = payload.toString();
+        if(msg === "offline"){
+          setStatus(false);
+          return;
+        }
+        lastStateTime = Date.now();
+        setStatus(true);
+        try { paintAll(JSON.parse(msg)); } catch(e){}
       }
     });
     mqttClient.on('error', function(){ useMqtt = false; });
@@ -125,12 +138,7 @@
     paint(dev, on);
     if(useMqtt && mqttClient && mqttClient.connected){
       mqttClient.publish(TOPIC_CMD, dev + ':' + (on ? 1 : 0));
-      return;
     }
-    try {
-      var r = await fetch('/api/cmd?d=' + dev + '&s=' + (on?1:0), {cache:'no-store'});
-      if(r.ok) paintAll(await r.json());
-    } catch(e){}
   }
 
   document.querySelectorAll('button[id$="-on"]').forEach(function(b){
@@ -140,7 +148,7 @@
     b.addEventListener('click', function(){ sendCmd(b.id.slice(0,-4), false); });
   });
 
-  document.getElementById('save-time').addEventListener('click', async function(){
+  document.getElementById('save-time').addEventListener('click', function(){
     var sel = document.getElementById('switch-select').value;
     var tval = document.getElementById('time').value;
     if(!sel){ alert('আগে একটি সুইচ বেছে নিন'); return; }
@@ -157,23 +165,18 @@
     if(useMqtt && mqttClient && mqttClient.connected){
       mqttClient.publish(TOPIC_CMD, 'timer:' + dev + ':' + ms);
       alert('টাইমার সেট হয়েছে ✅\n' + tval + ' -এ সুইচটি বন্ধ হবে।');
-      return;
+    } else {
+      alert('ESP32 এর সাথে সংযোগ নেই');
     }
-    try {
-      var r = await fetch('/api/timer?d=' + dev + '&ms=' + ms, {cache:'no-store'});
-      if(r.ok) alert('টাইমার সেট হয়েছে ✅\n' + tval + ' -এ সুইচটি বন্ধ হবে।');
-    } catch(e){ alert('সংযোগ নেই'); }
   });
 
-  async function refresh(){
-    if(useMqtt) return;
-    try {
-      var r = await fetch('/api/state', {cache:'no-store'});
-      if(r.ok) paintAll(await r.json());
-    } catch(e){}
-  }
-  refresh();
-  setInterval(refresh, 1500);
+  // প্রতি ৩ সেকেন্ডে চেক — ১৫ সেকেন্ড কোনো বার্তা না এলে Offline দেখাবে
+  setInterval(function(){
+    if(lastStateTime === 0) return;
+    if(Date.now() - lastStateTime > 15000){
+      setStatus(false);
+    }
+  }, 3000);
 })();
 </script>
 </body>
